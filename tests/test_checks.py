@@ -113,6 +113,22 @@ def test_schema_requires_every_field_for_structured_outputs():
     assert set(line["required"]) == set(line["properties"]) and line["additionalProperties"] is False
 
 
+def test_vat_summary_split():
+    from doc_intake.export import vat_split
+
+    D = Decimal
+    receipt = clean({"net_total": "6.73", "vat_total": "0.67", "gross_total": "7.40",
+                     "lines": [{"amount": "2.40", "vat_rate": "10"}, {"amount": "5.00", "vat_rate": "10"}]})
+    assert vat_split(receipt) == {D("10"): (D("6.73"), D("0.67"))}  # one rate: the printed totals
+    mixed = clean({"net_total": "200.00", "vat_total": "32.00", "gross_total": "232.00",
+                   "lines": [{"amount": "100.00", "vat_rate": "22"}, {"amount": "100.00", "vat_rate": "10"}]})
+    assert vat_split(mixed) == {D("22"): (D("100.00"), D("22.00")), D("10"): (D("100.00"), D("10.00"))}
+    gross_lines = clean({"gross_total": "232.00", "lines": [{"amount": "122.00", "vat_rate": "22"},
+                                                            {"amount": "110.00", "vat_rate": "10"}]})
+    assert vat_split(gross_lines) == {D("22"): (D("100.00"), D("22.00")), D("10"): (D("100.00"), D("10.00"))}
+    assert vat_split(clean({"doc_type": "delivery_note"})) == {}
+
+
 def test_clean_normalises_typed_dates_and_amounts():
     data = clean({"date": "22/09/2026", "due_date": "31/02/2026", "gross_total": "1.234,50", "net_total": "abc"})
     assert (data["date"], data["due_date"]) == ("2026-09-22", "31/02/2026")  # nonsense stays for the checks to flag

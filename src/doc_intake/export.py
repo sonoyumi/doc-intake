@@ -53,6 +53,34 @@ def _sheet(wb: Workbook, title: str, header: list[str], rows: list[list], money_
     return ws
 
 
+CENT = Decimal("0.01")
+
+
+def vat_split(d: dict) -> dict[Decimal, tuple[Decimal, Decimal]]:
+    """Net and VAT of one document by rate, for the VAT summary.
+
+    One rate on the document: its printed totals are the truth (exact to the cent, as the supplier declared).
+    Several rates: from the lines — as net amounts, or, on receipts where prices include VAT, by taking the
+    VAT out of each price.
+    """
+    lines = [(to_decimal(x["amount"]), to_decimal(x["vat_rate"])) for x in d["lines"]]
+    lines = [(a, r) for a, r in lines if a is not None and r is not None]
+    net, vat, gross = (to_decimal(d[n]) for n in ("net_total", "vat_total", "gross_total"))
+    rates = {r for _, r in lines}
+    if len(rates) == 1 and net is not None and vat is not None:
+        return {rates.pop(): (net, vat)}
+    if not lines:
+        return {}
+    total = sum((a for a, _ in lines), Decimal("0"))
+    included = gross is not None and abs(total - gross) <= CENT * len(lines) and (net is None or total != net)
+    result: dict[Decimal, list[Decimal]] = defaultdict(lambda: [Decimal("0"), Decimal("0")])
+    for amount, rate in lines:
+        line_net = (amount * 100 / (100 + rate)).quantize(CENT) if included else amount
+        result[rate][0] += line_net
+        result[rate][1] += (amount - line_net) if included else (amount * rate / 100).quantize(CENT)
+    return {rate: (n, v) for rate, (n, v) in result.items()}
+
+
 def build(docs: list[Document], reviewers: dict[int, str]) -> bytes:
     wb = Workbook()
     wb.remove(wb.active)
@@ -67,12 +95,12 @@ def build(docs: list[Document], reviewers: dict[int, str]) -> bytes:
             to_decimal(d["gross_total"]), doc.source, reviewers.get(doc.reviewed_by or 0, ""), _text(doc.filename),
         ])
         for line in d["lines"]:
-            amount, rate = to_decimal(line["amount"]), to_decimal(line["vat_rate"])
             line_rows.append([doc.id, _text(d["number"]), _text(d["supplier_name"]), _text(line["description"]),
-                              to_decimal(line["quantity"]), to_decimal(line["unit_price"]), rate, amount])
-            if amount is not None and rate is not None:
-                vat_by_rate[rate][0] += amount
-                vat_by_rate[rate][1] += (amount * rate / 100).quantize(Decimal("0.01"))
+                              to_decimal(line["quantity"]), to_decimal(line["unit_price"]),
+                              to_decimal(line["vat_rate"]), to_decimal(line["amount"])])
+        for rate, (net, vat) in vat_split(d).items():
+            vat_by_rate[rate][0] += net
+            vat_by_rate[rate][1] += vat
     _sheet(wb, "Documents",
            ["ID", "Type", "Number", "Date", "Due date", "Supplier", "Supplier VAT", "Customer", "Customer VAT",
             "Currency", "Net", "VAT", "Total", "Read by", "Approved by", "File"],

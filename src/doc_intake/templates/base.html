@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Documents{% endblock %} · {{ company }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+{% if user %}
+<header class="top">
+  <a class="brand" href="/documents">🧾 {{ company }}</a>
+  <nav>
+    <a href="/documents" class="{{ 'on' if active == 'documents' }}">Documents</a>
+    <a href="/export.xlsx">Export to Excel</a>
+    {% if user.role == 'admin' %}<a href="/users" class="{{ 'on' if active == 'users' }}">Users</a>{% endif %}
+  </nav>
+  <span class="pill {{ 'on' if ai_on }}">AI {{ 'on' if ai_on else 'off' }}</span>
+  <form method="post" action="/logout" class="who">
+    <span>{{ user.name }}</span>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="link">Log out</button>
+  </form>
+</header>
+{% endif %}
+<main class="{% block main_class %}{% endblock %}">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

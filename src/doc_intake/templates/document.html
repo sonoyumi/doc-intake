@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% set active = 'documents' %}
+{% block title %}#{{ doc.id }} {{ d.get('number', '') or doc.filename }}{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+{% set editable = doc.status == 'review' %}
+{% set err_fields = doc.issues|selectattr('level', 'equalto', 'error')|map(attribute='field')|list %}
+{% set warn_fields = doc.issues|selectattr('level', 'equalto', 'warning')|map(attribute='field')|list %}
+<div class="bar">
+  <div>
+    <a href="/documents?status={{ doc.status }}" class="muted">← {{ STATUS[doc.status] }}</a>
+    <h1>#{{ doc.id }} · {{ doc.filename }}</h1>
+  </div>
+  <div class="row">
+    <span class="status st-{{ doc.status }}">{{ STATUS[doc.status] }}</span>
+    <span class="muted small">read by: {{ SOURCE[doc.source] }}</span>
+  </div>
+</div>
+{% if flash %}<div class="note ok-note">{{ flash }}</div>{% endif %}
+
+<div class="split">
+  <section class="viewer card">
+    <img src="/documents/{{ doc.id }}/page/{{ page_no }}.png" alt="Page {{ page_no }} of {{ doc.filename }}">
+    <div class="row between small">
+      <span>
+        {% if doc.pages > 1 %}
+          {% for n in range(1, doc.pages + 1) %}<a class="pg {{ 'on' if n == page_no }}" href="?p={{ n }}">{{ n }}</a>{% endfor %}
+        {% else %}1 page{% endif %}
+      </span>
+      <a href="/documents/{{ doc.id }}/file">Download original ({{ doc.size|size }})</a>
+    </div>
+  </section>
+
+  <section class="side">
+    {% if doc.status in ['queued', 'reading'] %}
+      <div class="card">⏳ The document is in the queue to be read{% if doc.last_error %} — last attempt: {{ doc.last_error }}{% endif %}. Refresh in a moment.</div>
+    {% elif doc.status == 'failed' %}
+      <div class="alert">Could not be processed: {{ doc.last_error }}</div>
+    {% endif %}
+    {% if doc.note %}<div class="note">ℹ️ {{ doc.note }}</div>{% endif %}
+    {% if doc.reject_reason %}<div class="alert">Rejected: {{ doc.reject_reason }}</div>{% endif %}
+
+    {% if doc.issues %}
+    <div class="card issues">
+      {% for i in doc.issues %}
+        <div class="issue {{ i.level }}">{{ '⛔' if i.level == 'error' else '⚠️' }} {{ i.message }}</div>
+      {% endfor %}
+    </div>
+    {% elif doc.status in ['review', 'approved'] %}
+      <div class="note ok-note">✅ All checks passed: totals, VAT, VAT numbers, dates.</div>
+    {% endif %}
+
+    {% if doc.status in ['review', 'approved', 'rejected'] %}
+    <form method="post" action="/documents/{{ doc.id }}/save" class="card fields">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <div class="grid">
+        <label>Type
+          <select name="doc_type" {{ 'disabled' if not editable }}>
+            {% for k, v in DOC_TYPES.items() %}<option value="{{ k }}" {{ 'selected' if d.get('doc_type') == k }}>{{ v }}</option>{% endfor %}
+          </select>
+        </label>
+        {% for name, label in HEADER_FIELDS.items() if name != 'doc_type' %}
+          <label class="{{ 'f-err' if name in err_fields else ('f-warn' if name in warn_fields) }} {{ 'wide' if name in ['supplier_name', 'customer_name'] }}">{{ label }}
+            <input name="{{ name }}" value="{{ d.get(name, '') }}" {{ 'readonly' if not editable }}
+                   {% if name in ['date', 'due_date'] %}placeholder="YYYY-MM-DD"{% endif %}>
+          </label>
+        {% endfor %}
+      </div>
+
+      <h3 class="{{ 'f-err-text' if 'lines' in err_fields }}">Lines</h3>
+      <input type="hidden" name="line_count" value="{{ lines|length + spare }}">
+      <table class="lines">
+        <thead><tr>{% for name, label in LINE_FIELDS.items() %}<th class="{{ 'num' if name != 'description' }}">{{ label }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for i in range(lines|length + spare) %}
+          {% set line = lines[i] if i < lines|length else {} %}
+          <tr>{% for name in LINE_FIELDS %}
+            <td><input name="line-{{ i }}-{{ name }}" value="{{ line.get(name, '') }}" class="{{ 'num' if name != 'description' }}" {{ 'readonly' if not editable }}></td>
+          {% endfor %}</tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% if editable %}<p class="muted small">Empty rows are ignored. Amounts: 1234.50 or 1.234,50 — both work.</p>{% endif %}
+
+      {% if editable %}
+      <div class="actions">
+        <button name="action" value="save">Save and re-check</button>
+        {% if doc.errors %}<label class="check small"><input type="checkbox" name="accept_errors" value="1"> approve anyway</label>{% endif %}
+        <button class="primary" name="action" value="approve">Approve ✓</button>
+      </div>
+      {% endif %}
+    </form>
+    {% endif %}
+
+    <div class="row">
+      {% if doc.status == 'review' %}
+      <form method="post" action="/documents/{{ doc.id }}/reject" class="row grow">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input name="reason" placeholder="Reason (not a document, unreadable…)" class="grow">
+        <button class="danger">Reject</button>
+      </form>
+      {% endif %}
+      {% if doc.status in ['review', 'failed', 'rejected'] %}
+      <form method="post" action="/documents/{{ doc.id }}/reread">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button title="Discard the current fields and read the file again">Read again{{ ' with AI' if ai_on }}</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if edits %}
+    <h3>Edit history</h3>
+    <table class="history small">
+      {% for e in edits %}
+      <tr><td class="muted">{{ e.at|t }}</td><td>{{ e.user_name or '—' }}</td><td><b>{{ HEADER_FIELDS.get(e.field, e.field) }}</b></td>
+          <td>{{ e.old_value[:60] }} → {{ e.new_value[:60] }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

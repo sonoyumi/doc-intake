@@ -1,12 +1,15 @@
-# Секреты
+# Secrets
 .env
 .env.*
 !.env.example
 
-# Данные и логи
+# Documents, database, exports (customer data never goes to git)
 data/
 *.db
-*.sqlite3
+*.db-wal
+*.db-shm
+*.xlsx
+!examples/**/*.xlsx
 *.log
 
 # Python

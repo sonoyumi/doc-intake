@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set active = 'documents' %}
+{% block content %}
+<div class="bar">
+  <div class="tabs">
+    <a class="tab {{ 'on' if not status }}" href="/documents">All</a>
+    {% for s in ['review', 'queued', 'reading', 'approved', 'rejected', 'failed'] %}
+      <a class="tab {{ 'on' if status == s }} st-{{ s }}" href="/documents?status={{ s }}">{{ STATUS[s] }}<b>{{ counts[s] }}</b></a>
+    {% endfor %}
+  </div>
+  <form class="search" method="get" action="/documents">
+    {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+    <input name="q" value="{{ q }}" placeholder="Search: supplier, number, VAT no., file">
+  </form>
+</div>
+
+<form class="card upload" method="post" action="/upload" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <div>
+    <b>Add documents</b>
+    <span class="muted">PDF, JPG, PNG, WEBP · up to 50 files at once · or drop them into <code>data/inbox/</code></span>
+  </div>
+  <input type="file" name="files" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" required>
+  <button class="primary">Upload</button>
+  <span class="muted small">AI readings today: {{ ai_used }} / {{ ai_limit }}</span>
+</form>
+
+{% if msg.get('added') is not none %}
+  <div class="note ok-note">Uploaded: {{ msg.get('added') }} new{% if msg.get('dup') != '0' %}, {{ msg.get('dup') }} already in the list (same file){% endif %}.</div>
+{% endif %}
+{% if msg.get('rejected') %}<div class="alert">Not accepted — {{ msg.get('rejected') }}</div>{% endif %}
+
+{% if docs %}
+<table class="list">
+  <thead><tr><th>#</th><th>Document</th><th>Supplier</th><th>Date</th><th class="num">Total</th><th>Checks</th><th>Read by</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for doc in docs %}
+    {% set d = doc.data %}
+    <tr>
+      <td class="muted">{{ doc.id }}</td>
+      <td><a href="/documents/{{ doc.id }}"><b>{{ DOC_TYPES.get(d.get('doc_type'), 'Document') if d.get('number') else doc.filename }}</b>
+        {% if d.get('number') %} {{ d.get('number') }}{% endif %}</a>
+        <div class="muted small">{{ doc.filename }} · {{ doc.pages }} p. · {{ doc.size|size }}</div></td>
+      <td>{{ d.get('supplier_name', '') }}<div class="muted small">{{ d.get('supplier_vat', '') }}</div></td>
+      <td>{{ d.get('date', '') }}</td>
+      <td class="num">{% if d.get('gross_total') %}{{ d.get('gross_total') }} {{ d.get('currency', '') }}{% endif %}</td>
+      <td>{% if doc.status in ['review', 'approved', 'rejected'] %}
+            {% if doc.errors %}<span class="badge bad">{{ doc.errors }} error{{ 's' if doc.errors > 1 }}</span>{% endif %}
+            {% if doc.warnings %}<span class="badge warn">{{ doc.warnings }} warning{{ 's' if doc.warnings > 1 }}</span>{% endif %}
+            {% if not doc.errors and not doc.warnings %}<span class="badge ok">all checks passed</span>{% endif %}
+          {% elif doc.last_error %}<span class="muted small">{{ doc.last_error }}</span>{% endif %}</td>
+      <td class="small">{{ SOURCE[doc.source] }}</td>
+      <td><span class="status st-{{ doc.status }}">{{ STATUS[doc.status] }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">No documents here yet. Upload a PDF or a photo of an invoice above.</div>
+{% endif %}
+{% endblock %}

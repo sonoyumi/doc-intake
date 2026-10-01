@@ -112,12 +112,13 @@ doc-intake import examples/documents       # or upload in the panel
 doc-intake serve                           # panel + reading on http://127.0.0.1:8097
 ```
 
-Other commands: `doc-intake worker` (reading in a separate process), `read FILE`, `export -o report.xlsx`, `stats`.
+Other commands: `doc-intake worker` (reading in a separate process), `read FILE`, `export -o report.xlsx`, `stats`,
+`passwd EMAIL`.
 Docker: `docker build -t doc-intake . && docker run -p 8097:8097 --env-file .env -v $PWD/data:/app/data doc-intake`.
 
-Tests: `pytest` (50 tests: file types and limits, PDF text layer and previews, the Claude request and every kind of
+Tests: `pytest` (52 tests: file types and limits, PDF text layer and previews, the Claude request and every kind of
 API error with a fake client, all the checks, VAT summary, the queue with leases, retries and the daily limit,
-duplicates, the inbox folder, and the panel end to end: login limits, CSRF, upload, review, approve, export). No
+duplicates, the inbox folder, and the panel end to end: login limits, CSRF, upload, review, approve, export; the command line). No
 network and no API key needed.
 
 ### Project structure
@@ -206,7 +207,7 @@ doc-intake add-user --email voi@azienda.it --name "Nome Cognome" --role admin
 doc-intake serve                           # pannello su http://127.0.0.1:8097
 ```
 
-Test: `pytest` (50 test, senza rete e senza chiave API).
+Test: `pytest` (52 test, senza rete e senza chiave API).
 
 ### Struttura del progetto
 
@@ -278,7 +279,7 @@ doc-intake add-user --email you@company.it --name "Ім'я" --role admin
 doc-intake serve                           # панель на http://127.0.0.1:8097
 ```
 
-Тести: `pytest` (50 тестів, без мережі й ключа API).
+Тести: `pytest` (52 тести, без мережі й ключа API).
 
 ### Структура проєкту
 
@@ -351,7 +352,7 @@ doc-intake add-user --email you@company.it --name "Имя" --role admin
 doc-intake serve                           # панель на http://127.0.0.1:8097
 ```
 
-Тесты: `pytest` (50 тестов, без сети и ключа API).
+Тесты: `pytest` (52 теста, без сети и ключа API).
 
 ### Структура проекта
 

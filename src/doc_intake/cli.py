@@ -1,6 +1,7 @@
 """Command line.
 
 doc-intake add-user --email anna@studio.it --name Anna [--role admin]   create a user (asks for the password)
+doc-intake passwd anna@studio.it        set a new password
 doc-intake serve [--no-worker]          review panel + background reading (one process)
 doc-intake worker                       background reading only (run next to `serve --no-worker`)
 doc-intake import FILE_OR_FOLDER...     add documents to the queue
@@ -40,6 +41,8 @@ def build_parser() -> argparse.ArgumentParser:
     u.add_argument("--email", required=True)
     u.add_argument("--name", required=True)
     u.add_argument("--role", choices=["admin", "reviewer"], default="admin")
+    pw = sub.add_parser("passwd", help="set a new password for a user")
+    pw.add_argument("email")
     s = sub.add_parser("serve", help="run the review panel (and the worker)")
     s.add_argument("--no-worker", action="store_true", help="do not read documents in this process")
     sub.add_parser("worker", help="read queued documents")
@@ -68,6 +71,20 @@ async def _add_user(settings: Settings, args: argparse.Namespace) -> int:
         await store.close()
     print(f"User {args.email} ({args.role}) created.")
     return 0
+
+
+async def _passwd(settings: Settings, email: str) -> int:
+    password = getpass.getpass("New password (10+ characters): ")
+    if len(password) < 10:
+        print("The password must have at least 10 characters.")
+        return 1
+    store = await Store.open(settings.database_path)
+    try:
+        found = await store.set_password(email, security.hash_password(password))
+    finally:
+        await store.close()
+    print("Password changed." if found else f"No user {email}.")
+    return 0 if found else 1
 
 
 async def _serve(settings: Settings, with_worker: bool) -> int:
@@ -199,6 +216,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     commands = {
         "add-user": lambda: _add_user(settings, args),
+        "passwd": lambda: _passwd(settings, args.email),
         "serve": lambda: _serve(settings, not args.no_worker),
         "worker": lambda: _worker(settings),
         "import": lambda: _import(settings, args.paths),

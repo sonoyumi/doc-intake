@@ -179,6 +179,13 @@ class Store:
         row = await cur.fetchone()
         return User(row["id"], row["email"], row["name"], row["role"], row["password_hash"]) if row else None
 
+    async def set_password(self, email: str, password_hash: str) -> bool:
+        async with self.lock:
+            cur = await self.conn.execute("UPDATE users SET password_hash = ? WHERE email = ?",
+                                          (password_hash, email.strip()))
+            await self.conn.commit()
+            return cur.rowcount > 0
+
     async def users(self) -> list[User]:
         cur = await self.conn.execute("SELECT * FROM users ORDER BY id")
         return [User(r["id"], r["email"], r["name"], r["role"], r["password_hash"]) for r in await cur.fetchall()]

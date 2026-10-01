@@ -111,9 +111,9 @@
     {% if edits %}
     <h3>Edit history</h3>
     <table class="history small">
-      {% for e in edits %}
+      {% for e in edits[:15] %}
       <tr><td class="muted">{{ e.at|t }}</td><td>{{ e.user_name or '—' }}</td><td><b>{{ HEADER_FIELDS.get(e.field, e.field) }}</b></td>
-          <td>{{ e.old_value[:60] }} → {{ e.new_value[:60] }}</td></tr>
+          <td>{{ e.old_value|val|truncate(60) }} → {{ e.new_value|val|truncate(60) }}</td></tr>
       {% endfor %}
     </table>
     {% endif %}

@@ -16,8 +16,7 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 from openpyxl.styles import Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .checks import parse_date
-from .model import DOC_TYPES, to_decimal
+from .model import DOC_TYPES, parse_date, to_decimal
 from .store import Document
 
 MONEY = "#,##0.00"

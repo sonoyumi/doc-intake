@@ -42,7 +42,7 @@
         {% if d.get('number') %} {{ d.get('number') }}{% endif %}</a>
         <div class="muted small">{{ doc.filename }} · {{ doc.pages }} p. · {{ doc.size|size }}</div></td>
       <td>{{ d.get('supplier_name', '') }}<div class="muted small">{{ d.get('supplier_vat', '') }}</div></td>
-      <td>{{ d.get('date', '') }}</td>
+      <td>{{ d.get('date', '')|day }}</td>
       <td class="num">{% if d.get('gross_total') %}{{ d.get('gross_total') }} {{ d.get('currency', '') }}{% endif %}</td>
       <td>{% if doc.status in ['review', 'approved', 'rejected'] %}
             {% if doc.errors %}<span class="badge bad">{{ doc.errors }} error{{ 's' if doc.errors > 1 }}</span>{% endif %}

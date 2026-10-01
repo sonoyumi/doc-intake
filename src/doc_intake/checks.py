@@ -12,7 +12,9 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from .model import HEADER_FIELDS, to_decimal
+from .model import HEADER_FIELDS, parse_date, to_decimal
+
+__all__ = ["Issue", "check_vat_number", "italian_vat_ok", "parse_date", "run", "counts"]
 
 TOLERANCE = Decimal("0.02")  # rounding on documents: up to 2 cents per total
 VAT_RATES_IT = {Decimal(x) for x in ("0", "4", "5", "10", "22")}
@@ -56,19 +58,6 @@ def check_vat_number(value: str) -> str | None:
         return None
     if not re.fullmatch(r"[A-Z]{2}[0-9A-Z]{2,13}", value):
         return f"{value}: does not look like a VAT number"
-    return None
-
-
-def parse_date(value: str) -> date | None:
-    for pattern in (r"(\d{4})-(\d{2})-(\d{2})", r"(\d{2})[/.](\d{2})[/.](\d{4})"):
-        m = re.fullmatch(pattern, value.strip())
-        if m:
-            parts = [int(x) for x in m.groups()]
-            y, mo, d = parts if len(m.group(1)) == 4 else (parts[2], parts[1], parts[0])
-            try:
-                return date(y, mo, d)
-            except ValueError:
-                return None
     return None
 
 

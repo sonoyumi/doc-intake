@@ -8,6 +8,7 @@ the database (JSON), the review form and the Excel export without conversions.
 from __future__ import annotations
 
 import re
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -89,6 +90,19 @@ def to_decimal(value: Any) -> Decimal | None:
         return None
 
 
+def parse_date(value: str) -> date | None:
+    for pattern in (r"(\d{4})-(\d{2})-(\d{2})", r"(\d{2})[/.](\d{2})[/.](\d{4})"):
+        m = re.fullmatch(pattern, value.strip())
+        if m:
+            parts = [int(x) for x in m.groups()]
+            y, mo, d = parts if len(m.group(1)) == 4 else (parts[2], parts[1], parts[0])
+            try:
+                return date(y, mo, d)
+            except ValueError:
+                return None
+    return None
+
+
 def money(value: Decimal | None) -> str:
     return "" if value is None else f"{value.quantize(Decimal('0.01'))}"
 
@@ -119,6 +133,10 @@ def clean(raw: Any) -> dict[str, Any]:
     data["currency"] = data["currency"].upper()[:3]
     for name in ("supplier_vat", "customer_vat"):
         data[name] = re.sub(r"[\s.\-]", "", data[name]).upper()
+    for name in ("date", "due_date"):  # "22/09/2026" typed by a person -> "2026-09-22"; nonsense is kept for the checks
+        parsed = parse_date(data[name]) if data[name] else None
+        if parsed:
+            data[name] = parsed.isoformat()
     for name in MONEY_FIELDS:  # "1.234,50" typed by a person -> "1234.50"; unparseable text is kept for the checks
         data[name] = _normal(data[name], money)
     lines = raw.get("lines") or []

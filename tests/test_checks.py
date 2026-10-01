@@ -111,3 +111,9 @@ def test_schema_requires_every_field_for_structured_outputs():
     assert SCHEMA["additionalProperties"] is False
     line = SCHEMA["properties"]["lines"]["items"]
     assert set(line["required"]) == set(line["properties"]) and line["additionalProperties"] is False
+
+
+def test_clean_normalises_typed_dates_and_amounts():
+    data = clean({"date": "22/09/2026", "due_date": "31/02/2026", "gross_total": "1.234,50", "net_total": "abc"})
+    assert (data["date"], data["due_date"]) == ("2026-09-22", "31/02/2026")  # nonsense stays for the checks to flag
+    assert (data["gross_total"], data["net_total"]) == ("1234.50", "abc")

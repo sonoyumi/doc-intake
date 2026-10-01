@@ -8,6 +8,7 @@ as text, never executed.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable
@@ -23,7 +24,7 @@ from starlette.datastructures import UploadFile
 
 from . import checks, export, files, security
 from .config import Settings
-from .model import DOC_TYPES, HEADER_FIELDS, LINE_FIELDS, clean
+from .model import DOC_TYPES, HEADER_FIELDS, LINE_FIELDS, clean, parse_date
 from .store import STATUSES, Conflict, NotFound, Store, User
 
 HERE = Path(__file__).parent
@@ -71,6 +72,23 @@ def size_label(n: int) -> str:
     return f"{n / 1024 / 1024:.1f} MB" if n >= 1024 * 1024 else f"{max(1, n // 1024)} KB"
 
 
+def day_label(iso: str) -> str:
+    """2026-09-22 -> 22/09/2026 (the way Italian documents write it)."""
+    parsed = parse_date(iso) if iso else None
+    return parsed.strftime("%d/%m/%Y") if parsed else iso
+
+
+def edit_value(raw: str) -> str:
+    """Edit-log value for people: no JSON quotes, lines as a count."""
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return raw
+    if isinstance(value, list):
+        return f"{len(value)} line{'s' if len(value) != 1 else ''}"
+    return str(value) if value not in ("", None) else "—"
+
+
 def form_data(form) -> dict:
     """Review form -> canonical document dict (model.clean drops anything unexpected)."""
     raw = {name: form.get(name, "") for name in HEADER_FIELDS}
@@ -92,7 +110,7 @@ def create_app(store: Store, settings: Settings, clock: Callable[[], float] = ti
     templates.env.globals.update(STATUS=STATUS_LABELS, SOURCE=SOURCE_LABELS, DOC_TYPES=DOC_TYPES,
                                  HEADER_FIELDS=HEADER_FIELDS, LINE_FIELDS=LINE_FIELDS,
                                  company=settings.company_name, ai_on=settings.ai_mode == "claude")
-    templates.env.filters.update(t=local_time, size=size_label)
+    templates.env.filters.update(t=local_time, size=size_label, day=day_label, val=edit_value)
     limiter = LoginLimiter(clock)
 
     @app.middleware("http")
